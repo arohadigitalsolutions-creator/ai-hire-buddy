@@ -42,10 +42,10 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8">
             <a href="#agents" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Agents</a>
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-            <Link to="/dashboard" className="text-sm font-medium text-primary hover:text-primary/80 transition-colors">
-              Dashboard
+            <Link to="/auth" className="text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+              Sign In
             </Link>
-            <Link to="/dashboard" className="inline-flex h-9 px-4 items-center rounded-lg bg-gradient-primary text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">
+            <Link to="/auth" className="inline-flex h-9 px-4 items-center rounded-lg bg-gradient-primary text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">
               Get Started <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
             </Link>
           </div>
@@ -77,7 +77,7 @@ export default function LandingPage() {
               Six specialized AI agents work together to automate your entire hiring pipeline — from JD creation to candidate scoring to interviews.
             </motion.p>
             <motion.div variants={fadeUp} custom={3} className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/dashboard" className="inline-flex h-12 px-8 items-center justify-center rounded-lg bg-gradient-primary text-base font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition-opacity">
+              <Link to="/auth" className="inline-flex h-12 px-8 items-center justify-center rounded-lg bg-gradient-primary text-base font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition-opacity">
                 Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
               <a href="#agents" className="inline-flex h-12 px-8 items-center justify-center rounded-lg border border-border bg-secondary/30 text-base font-medium text-foreground hover:bg-secondary/50 transition-colors">
@@ -187,7 +187,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link
-                  to="/dashboard"
+                  to="/auth"
                   className={`inline-flex h-10 items-center justify-center rounded-lg text-sm font-medium transition-all ${
                     plan.highlighted
                       ? "bg-gradient-primary text-primary-foreground hover:opacity-90"

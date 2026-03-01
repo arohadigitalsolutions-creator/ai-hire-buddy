@@ -14,16 +14,255 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      candidate_scores: {
+        Row: {
+          behavioral_score: number | null
+          created_at: string
+          experience_score: number | null
+          fit_score: number
+          gaps: string[] | null
+          id: string
+          job_id: string
+          ranking: number | null
+          resume_id: string
+          status: string
+          strengths: string[] | null
+          technical_score: number | null
+          tools_score: number | null
+          user_id: string
+        }
+        Insert: {
+          behavioral_score?: number | null
+          created_at?: string
+          experience_score?: number | null
+          fit_score?: number
+          gaps?: string[] | null
+          id?: string
+          job_id: string
+          ranking?: number | null
+          resume_id: string
+          status?: string
+          strengths?: string[] | null
+          technical_score?: number | null
+          tools_score?: number | null
+          user_id: string
+        }
+        Update: {
+          behavioral_score?: number | null
+          created_at?: string
+          experience_score?: number | null
+          fit_score?: number
+          gaps?: string[] | null
+          id?: string
+          job_id?: string
+          ranking?: number | null
+          resume_id?: string
+          status?: string
+          strengths?: string[] | null
+          technical_score?: number | null
+          tools_score?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_scores_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "job_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_scores_resume_id_fkey"
+            columns: ["resume_id"]
+            isOneToOne: false
+            referencedRelation: "resumes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_profiles: {
+        Row: {
+          created_at: string
+          department: string | null
+          employment_type: string | null
+          experience: string | null
+          id: string
+          jd_text: string | null
+          location: string | null
+          skills: string[] | null
+          structured_json: Json | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          employment_type?: string | null
+          experience?: string | null
+          id?: string
+          jd_text?: string | null
+          location?: string | null
+          skills?: string[] | null
+          structured_json?: Json | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          employment_type?: string | null
+          experience?: string | null
+          id?: string
+          jd_text?: string | null
+          location?: string | null
+          skills?: string[] | null
+          structured_json?: Json | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          id: string
+          payment_date: string
+          plan: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          id?: string
+          payment_date?: string
+          plan: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          id?: string
+          payment_date?: string
+          plan?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          plan_type: string
+          subscription_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          plan_type?: string
+          subscription_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          plan_type?: string
+          subscription_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      resumes: {
+        Row: {
+          candidate_email: string | null
+          candidate_name: string
+          created_at: string
+          education: string | null
+          experience_years: number | null
+          file_name: string | null
+          file_path: string | null
+          id: string
+          parsed_json: Json | null
+          skills: string[] | null
+          user_id: string
+        }
+        Insert: {
+          candidate_email?: string | null
+          candidate_name?: string
+          created_at?: string
+          education?: string | null
+          experience_years?: number | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          parsed_json?: Json | null
+          skills?: string[] | null
+          user_id: string
+        }
+        Update: {
+          candidate_email?: string | null
+          candidate_name?: string
+          created_at?: string
+          education?: string | null
+          experience_years?: number | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          parsed_json?: Json | null
+          skills?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +389,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

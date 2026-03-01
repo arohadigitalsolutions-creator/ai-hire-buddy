@@ -1,5 +1,6 @@
-import { NavLink, Outlet, Link } from "react-router-dom";
+import { NavLink, Outlet, Link, useNavigate } from "react-router-dom";
 import { Brain, LayoutDashboard, FileText, Users, MessageSquare, BarChart3, Settings, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Overview", end: true },
@@ -10,6 +11,14 @@ const navItems = [
 ];
 
 export default function DashboardLayout() {
+  const { signOut, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
+
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
@@ -42,6 +51,11 @@ export default function DashboardLayout() {
         </nav>
 
         <div className="p-3 border-t border-sidebar-border space-y-1">
+          {user && (
+            <div className="px-3 py-2 text-xs text-muted-foreground truncate">
+              {user.email}
+            </div>
+          )}
           <NavLink
             to="/dashboard/settings"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
@@ -49,13 +63,13 @@ export default function DashboardLayout() {
             <Settings className="h-4 w-4" />
             Settings
           </NavLink>
-          <Link
-            to="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full text-left"
           >
             <LogOut className="h-4 w-4" />
             Sign Out
-          </Link>
+          </button>
         </div>
       </aside>
 
