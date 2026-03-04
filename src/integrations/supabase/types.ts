@@ -80,6 +80,45 @@ export type Database = {
           },
         ]
       }
+      interviews: {
+        Row: {
+          candidate_name: string
+          created_at: string
+          id: string
+          interview_type: string
+          questions: Json | null
+          role: string
+          scheduled_date: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          candidate_name?: string
+          created_at?: string
+          id?: string
+          interview_type?: string
+          questions?: Json | null
+          role?: string
+          scheduled_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          candidate_name?: string
+          created_at?: string
+          id?: string
+          interview_type?: string
+          questions?: Json | null
+          role?: string
+          scheduled_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       job_profiles: {
         Row: {
           created_at: string
