@@ -1,13 +1,16 @@
 import { NavLink, Outlet, Link, useNavigate } from "react-router-dom";
-import { Brain, LayoutDashboard, FileText, Users, MessageSquare, BarChart3, Settings, LogOut } from "lucide-react";
+import { Brain, LayoutDashboard, FileText, Users, MessageSquare, BarChart3, Settings, LogOut, Zap, Mail, TrendingUp } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Overview", end: true },
   { to: "/dashboard/jobs", icon: FileText, label: "Job Profiles" },
   { to: "/dashboard/candidates", icon: Users, label: "Candidates" },
-  { to: "/dashboard/interviews", icon: MessageSquare, label: "Interviews" },
+  { to: "/dashboard/matching", icon: Zap, label: "Smart Matching" },
+  { to: "/dashboard/interviews", icon: MessageSquare, label: "AI Interviewer" },
+  { to: "/dashboard/communication", icon: Mail, label: "Communication" },
   { to: "/dashboard/analytics", icon: BarChart3, label: "Analytics" },
+  { to: "/dashboard/insights", icon: TrendingUp, label: "HR Insights" },
 ];
 
 export default function DashboardLayout() {
@@ -21,7 +24,6 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex h-screen bg-background">
-      {/* Sidebar */}
       <aside className="w-64 border-r border-sidebar-border bg-sidebar flex flex-col shrink-0">
         <Link to="/" className="flex items-center gap-2 px-5 h-16 border-b border-sidebar-border">
           <div className="h-8 w-8 rounded-lg bg-gradient-primary flex items-center justify-center">
@@ -30,7 +32,7 @@ export default function DashboardLayout() {
           <span className="text-lg font-bold text-sidebar-accent-foreground">RecruitAI</span>
         </Link>
 
-        <nav className="flex-1 py-4 px-3 space-y-1">
+        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -73,7 +75,6 @@ export default function DashboardLayout() {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
