@@ -38,7 +38,7 @@ Include sections: About the Role, Key Responsibilities (5-7 bullets), Requiremen
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "You are an expert HR recruiter. Generate professional job descriptions in clean markdown." },
+          { role: "system", content: "You are an expert HR recruiter with deep knowledge across all industries — technology, marketing, sales, finance, healthcare, education, operations, HR, design, legal, and more. Generate professional, domain-specific job descriptions in clean markdown. Always match the tone, terminology, and requirements to the specific role and industry." },
           { role: "user", content: prompt },
         ],
       }),
