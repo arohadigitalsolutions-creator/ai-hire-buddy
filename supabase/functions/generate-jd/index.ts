@@ -21,7 +21,13 @@ Experience Required: ${experience || "Not specified"}
 Key Skills: ${(skills || []).join(", ") || "Not specified"}
 Employment Type: ${employmentType || "Full-time"}
 
-Include sections: About the Role, Responsibilities (5-7 bullets), Requirements (5-6 bullets), Nice to Have (3-4 bullets), and Benefits (4-5 bullets). Make it compelling and professional.`;
+IMPORTANT: Tailor the job description specifically to this role's industry and domain. Do NOT default to technology/engineering language unless the role is actually a tech role. For example:
+- A Marketing Manager JD should focus on marketing strategy, campaigns, brand management
+- An HR Director JD should focus on talent strategy, employee engagement, compliance
+- A Sales Executive JD should focus on revenue targets, client relationships, pipeline
+- A Finance Analyst JD should focus on financial modeling, reporting, budgeting
+
+Include sections: About the Role, Key Responsibilities (5-7 bullets), Requirements (5-6 bullets), Nice to Have (3-4 bullets), and What We Offer (4-5 bullets). Make it compelling, professional, and domain-appropriate.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -32,7 +38,7 @@ Include sections: About the Role, Responsibilities (5-7 bullets), Requirements (
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "You are an expert HR recruiter. Generate professional job descriptions in clean markdown." },
+          { role: "system", content: "You are an expert HR recruiter with deep knowledge across all industries — technology, marketing, sales, finance, healthcare, education, operations, HR, design, legal, and more. Generate professional, domain-specific job descriptions in clean markdown. Always match the tone, terminology, and requirements to the specific role and industry." },
           { role: "user", content: prompt },
         ],
       }),
