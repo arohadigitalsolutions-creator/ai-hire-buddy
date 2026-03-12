@@ -13,8 +13,11 @@ import DashboardLayout from "./components/DashboardLayout";
 import DashboardOverview from "./pages/DashboardOverview";
 import JobProfilesPage from "./pages/JobProfilesPage";
 import CandidatesPage from "./pages/CandidatesPage";
+import SmartMatchingPage from "./pages/SmartMatchingPage";
 import InterviewsPage from "./pages/InterviewsPage";
+import CommunicationPage from "./pages/CommunicationPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import HRInsightsPage from "./pages/HRInsightsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,8 +45,11 @@ const App = () => (
               <Route index element={<DashboardOverview />} />
               <Route path="jobs" element={<JobProfilesPage />} />
               <Route path="candidates" element={<CandidatesPage />} />
+              <Route path="matching" element={<SmartMatchingPage />} />
               <Route path="interviews" element={<InterviewsPage />} />
+              <Route path="communication" element={<CommunicationPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="insights" element={<HRInsightsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
