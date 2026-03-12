@@ -35,18 +35,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (newSession?.user) {
           // Fetch role in background without blocking
-          setTimeout(() => {
-            supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", newSession.user.id)
-              .maybeSingle()
-              .then(({ data }) => {
-                setUserRole(data?.role ?? "user");
-              })
-              .catch(() => {
-                setUserRole("user");
-              });
+          setTimeout(async () => {
+            try {
+              const { data } = await supabase
+                .from("user_roles")
+                .select("role")
+                .eq("user_id", newSession.user.id)
+                .maybeSingle();
+              setUserRole(data?.role ?? "user");
+            } catch {
+              setUserRole("user");
+            }
           }, 0);
         } else {
           setUserRole(null);
