@@ -45,8 +45,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: "TalentFlowAI <onboarding@resend.dev>",
-        to: [actualRecipient],
-        subject: testMode ? `[TEST] ${subject}` : subject,
+        to: [to],
+        subject: subject,
         html: htmlBody,
       }),
     });
