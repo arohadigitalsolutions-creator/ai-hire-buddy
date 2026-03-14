@@ -26,7 +26,7 @@ serve(async (req) => {
       );
     }
 
-    const testLabel = testMode ? `\n<p style="background: #fff3cd; padding: 8px 12px; border-radius: 4px; font-size: 12px; color: #856404;"><strong>⚠️ TEST MODE:</strong> Originally intended for <strong>${to}</strong></p>` : "";
+    
 
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
