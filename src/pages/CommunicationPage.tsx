@@ -126,10 +126,20 @@ export default function CommunicationPage() {
                 onChange={(e) => setCustomMessage(e.target.value)}
                 className="w-full h-32 p-3 rounded-lg border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+                <span className="text-xs text-amber-600 dark:text-amber-400">Test mode — emails go to your inbox (priyamcop@gmail.com)</span>
+              </div>
+              <button onClick={() => setTestMode(!testMode)}
+                className={`relative w-9 h-5 rounded-full transition-colors ${testMode ? 'bg-amber-500' : 'bg-muted'}`}>
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${testMode ? 'translate-x-4' : ''}`} />
+              </button>
+            </div>
             <button onClick={handleSend} disabled={sending || !selectedCandidate}
               className="w-full h-11 rounded-lg bg-gradient-primary text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {sending ? "Sending..." : "Send Email"}
+              {sending ? "Sending..." : testMode ? "Send Test Email" : "Send Email"}
             </button>
           </div>
         </div>
