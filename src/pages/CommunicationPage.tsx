@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Mail, Send, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { Mail, Send, Clock, CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,7 @@ interface CommunicationLog {
   email: string;
   type: string;
   sentAt: string;
+  status: "sent" | "failed";
 }
 
 export default function CommunicationPage() {
@@ -41,25 +42,50 @@ export default function CommunicationPage() {
     "Rejection": "Thank you for your interest. After careful review, we have decided to move forward with other candidates.",
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!selectedCandidate) return;
     setSending(true);
     const candidate = candidates.find((c) => c.id === selectedCandidate);
+    const emailBody = customMessage || templates[messageType];
 
-    // Simulate sending (no real email backend wired yet)
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.functions.invoke("send-email", {
+        body: {
+          to: candidate?.candidate_email,
+          subject: messageType,
+          body: emailBody,
+          candidateName: candidate?.candidate_name,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
       const newLog: CommunicationLog = {
         id: crypto.randomUUID(),
         candidateName: candidate?.candidate_name || "Unknown",
         email: candidate?.candidate_email || "N/A",
         type: messageType,
         sentAt: new Date().toISOString(),
+        status: "sent",
       };
       setLogs((prev) => [newLog, ...prev]);
-      toast({ title: `Message prepared for ${candidate?.candidate_name}`, description: "Communication logged successfully." });
+      toast({ title: "Message sent successfully", description: `Email delivered to ${candidate?.candidate_email}` });
       setCustomMessage("");
+    } catch (err: any) {
+      const newLog: CommunicationLog = {
+        id: crypto.randomUUID(),
+        candidateName: candidate?.candidate_name || "Unknown",
+        email: candidate?.candidate_email || "N/A",
+        type: messageType,
+        sentAt: new Date().toISOString(),
+        status: "failed",
+      };
+      setLogs((prev) => [newLog, ...prev]);
+      toast({ title: "Failed to send email", description: err.message || "Please try again.", variant: "destructive" });
+    } finally {
       setSending(false);
-    }, 800);
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -68,7 +94,7 @@ export default function CommunicationPage() {
     <div className="p-8 max-w-5xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Communication</h1>
-        <p className="text-muted-foreground mt-1">Draft and track candidate communications.</p>
+        <p className="text-muted-foreground mt-1">Draft and send emails to candidates.</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -101,7 +127,7 @@ export default function CommunicationPage() {
             <button onClick={handleSend} disabled={sending || !selectedCandidate}
               className="w-full h-11 rounded-lg bg-gradient-primary text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {sending ? "Sending..." : "Send Message"}
+              {sending ? "Sending..." : "Send Email"}
             </button>
           </div>
         </div>
@@ -120,7 +146,11 @@ export default function CommunicationPage() {
               <motion.div key={log.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="px-5 py-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="h-4 w-4 text-success shrink-0" />
+                    {log.status === "sent" ? (
+                      <CheckCircle className="h-4 w-4 text-success shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                    )}
                     <div>
                       <div className="text-sm font-medium text-foreground">{log.candidateName}</div>
                       <div className="text-xs text-muted-foreground">{log.type} · {log.email}</div>
