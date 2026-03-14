@@ -56,6 +56,7 @@ export default function CommunicationPage() {
           subject: messageType,
           body: emailBody,
           candidateName: candidate?.candidate_name,
+          testMode,
         },
       });
 
