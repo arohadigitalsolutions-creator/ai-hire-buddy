@@ -30,7 +30,6 @@ serve(async (req) => {
 
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        ${testLabel}
         <p>Dear ${candidateName || "Candidate"},</p>
         <div style="white-space: pre-wrap; line-height: 1.6;">${body}</div>
         <br/>
