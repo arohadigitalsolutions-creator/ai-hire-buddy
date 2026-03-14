@@ -128,7 +128,7 @@ export default function CommunicationPage() {
             <button onClick={handleSend} disabled={sending || !selectedCandidate}
               className="w-full h-11 rounded-lg bg-gradient-primary text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {sending ? "Sending..." : testMode ? "Send Test Email" : "Send Email"}
+              {sending ? "Sending..." : "Send Email"}
             </button>
           </div>
         </div>
