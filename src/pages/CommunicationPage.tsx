@@ -22,7 +22,7 @@ export default function CommunicationPage() {
   const [messageType, setMessageType] = useState("Interview Invitation");
   const [customMessage, setCustomMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [logs, setLogs] = useState<CommunicationLog[]>([]);
+  const [testMode, setTestMode] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
