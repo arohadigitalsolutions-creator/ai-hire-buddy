@@ -17,11 +17,7 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
-    const { to, subject, body, candidateName, testMode } = await req.json();
-
-    // In test mode, redirect all emails to the Resend account owner's email
-    const RESEND_ACCOUNT_EMAIL = "priyamcop@gmail.com";
-    const actualRecipient = testMode ? RESEND_ACCOUNT_EMAIL : to;
+    const { to, subject, body, candidateName } = await req.json();
 
     if (!to || !subject || !body) {
       return new Response(
