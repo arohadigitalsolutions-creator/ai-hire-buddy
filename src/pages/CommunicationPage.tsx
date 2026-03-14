@@ -23,6 +23,7 @@ export default function CommunicationPage() {
   const [customMessage, setCustomMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [testMode, setTestMode] = useState(true);
+  const [logs, setLogs] = useState<CommunicationLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
