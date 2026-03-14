@@ -17,11 +17,7 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
-    const { to, subject, body, candidateName, testMode } = await req.json();
-
-    // In test mode, redirect all emails to the Resend account owner's email
-    const RESEND_ACCOUNT_EMAIL = "priyamcop@gmail.com";
-    const actualRecipient = testMode ? RESEND_ACCOUNT_EMAIL : to;
+    const { to, subject, body, candidateName } = await req.json();
 
     if (!to || !subject || !body) {
       return new Response(
@@ -30,11 +26,10 @@ serve(async (req) => {
       );
     }
 
-    const testLabel = testMode ? `\n<p style="background: #fff3cd; padding: 8px 12px; border-radius: 4px; font-size: 12px; color: #856404;"><strong>⚠️ TEST MODE:</strong> Originally intended for <strong>${to}</strong></p>` : "";
+    
 
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        ${testLabel}
         <p>Dear ${candidateName || "Candidate"},</p>
         <div style="white-space: pre-wrap; line-height: 1.6;">${body}</div>
         <br/>
@@ -50,8 +45,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: "TalentFlowAI <onboarding@resend.dev>",
-        to: [actualRecipient],
-        subject: testMode ? `[TEST] ${subject}` : subject,
+        to: [to],
+        subject: subject,
         html: htmlBody,
       }),
     });
