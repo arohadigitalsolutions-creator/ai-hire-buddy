@@ -44,7 +44,7 @@ serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "TalentFlowAI <onboarding@resend.dev>",
+        from: "RecruitAI <information@recruitai.com>",
         to: [to],
         subject: subject,
         html: htmlBody,
