@@ -9,9 +9,30 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { resumeText, candidateName } = await req.json();
+    const { resumeText, candidateName, fileBase64, fileMimeType } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // Build user message content - support both text and file (PDF)
+    const userContent: any[] = [];
+    
+    if (fileBase64 && fileMimeType) {
+      userContent.push({
+        type: "image_url",
+        image_url: { url: `data:${fileMimeType};base64,${fileBase64}` },
+      });
+      userContent.push({
+        type: "text",
+        text: "Parse this resume document and extract key information.",
+      });
+    } else if (resumeText) {
+      userContent.push({
+        type: "text",
+        text: `Parse this resume and extract key information:\n\n${resumeText}`,
+      });
+    } else {
+      throw new Error("No resume content provided");
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -23,7 +44,7 @@ serve(async (req) => {
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: "You are an expert resume parser. Extract structured information from resumes." },
-          { role: "user", content: `Parse this resume and extract key information:\n\n${resumeText}` },
+          { role: "user", content: userContent },
         ],
         tools: [{
           type: "function",

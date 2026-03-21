@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Upload, Search, Filter, Loader2, Plus, X } from "lucide-react";
+import { Upload, Search, Filter, Loader2, Plus, X, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +50,9 @@ export default function CandidatesPage() {
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [resumeText, setResumeText] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<"file" | "text">("file");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) fetchData();
@@ -65,15 +68,50 @@ export default function CandidatesPage() {
     setLoading(false);
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(",")[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleParseResume = async () => {
-    if (!resumeText.trim() || !user) return;
+    if (!user) return;
+    if (uploadMode === "text" && !resumeText.trim()) return;
+    if (uploadMode === "file" && !selectedFile) return;
+
     setUploading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("parse-resume", {
-        body: { resumeText, candidateName: "" },
-      });
+      let body: Record<string, any> = { candidateName: "" };
+
+      if (uploadMode === "file" && selectedFile) {
+        const base64 = await fileToBase64(selectedFile);
+        body.fileBase64 = base64;
+        body.fileMimeType = selectedFile.type || "application/pdf";
+      } else {
+        body.resumeText = resumeText;
+      }
+
+      const { data, error } = await supabase.functions.invoke("parse-resume", { body });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      // Upload file to storage if PDF
+      let filePath: string | null = null;
+      let fileName: string | null = null;
+      if (uploadMode === "file" && selectedFile) {
+        fileName = selectedFile.name;
+        const storagePath = `${user.id}/${Date.now()}_${fileName}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("resumes")
+          .upload(storagePath, selectedFile);
+        if (!uploadErr) filePath = storagePath;
+      }
 
       const { error: insertErr } = await supabase.from("resumes").insert({
         user_id: user.id,
@@ -83,11 +121,14 @@ export default function CandidatesPage() {
         experience_years: data.experience_years || null,
         education: data.education || null,
         parsed_json: data,
+        file_name: fileName,
+        file_path: filePath,
       });
       if (insertErr) throw insertErr;
 
       toast({ title: "Resume parsed and saved!" });
       setResumeText("");
+      setSelectedFile(null);
       setShowUpload(false);
       fetchData();
     } catch (e: any) {
@@ -103,6 +144,8 @@ export default function CandidatesPage() {
     r.candidate_name.toLowerCase().includes(search.toLowerCase()) ||
     (r.skills || []).some((s) => s.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const canSubmit = uploadMode === "file" ? !!selectedFile : !!resumeText.trim();
 
   return (
     <div className="p-8">
@@ -122,16 +165,79 @@ export default function CandidatesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="rounded-xl border border-border bg-card p-6 w-full max-w-lg">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-foreground">Paste Resume Text</h2>
-              <button onClick={() => setShowUpload(false)}><X className="h-4 w-4 text-muted-foreground" /></button>
+              <h2 className="text-base font-semibold text-foreground">Upload Resume</h2>
+              <button onClick={() => { setShowUpload(false); setSelectedFile(null); setResumeText(""); }}>
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
             </div>
-            <textarea
-              value={resumeText}
-              onChange={(e) => setResumeText(e.target.value)}
-              placeholder="Paste the candidate's resume text here..."
-              className="w-full h-48 p-3 rounded-lg border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-            />
-            <button onClick={handleParseResume} disabled={uploading || !resumeText.trim()}
+
+            {/* Mode Toggle */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setUploadMode("file")}
+                className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${uploadMode === "file" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+              >
+                Upload PDF
+              </button>
+              <button
+                onClick={() => setUploadMode("text")}
+                className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${uploadMode === "text" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+              >
+                Paste Text
+              </button>
+            </div>
+
+            {uploadMode === "file" ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-48 rounded-lg border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 10 * 1024 * 1024) {
+                        toast({ title: "File too large", description: "Max file size is 10MB", variant: "destructive" });
+                        return;
+                      }
+                      setSelectedFile(file);
+                    }
+                  }}
+                />
+                {selectedFile ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <FileText className="h-8 w-8 text-primary" />
+                    <span className="text-sm font-medium text-foreground">{selectedFile.name}</span>
+                    <span className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(0)} KB</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                      className="text-xs text-destructive hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Click to upload PDF</span>
+                    <span className="text-xs text-muted-foreground">Max 10MB</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <textarea
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                placeholder="Paste the candidate's resume text here..."
+                className="w-full h-48 p-3 rounded-lg border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              />
+            )}
+
+            <button onClick={handleParseResume} disabled={uploading || !canSubmit}
               className="w-full h-10 mt-4 rounded-lg bg-gradient-primary text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {uploading ? "Parsing with AI..." : "Parse & Save"}
