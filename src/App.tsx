@@ -18,6 +18,7 @@ import InterviewsPage from "./pages/InterviewsPage";
 import CommunicationPage from "./pages/CommunicationPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import HRInsightsPage from "./pages/HRInsightsPage";
+import UnsubscribePage from "./pages/UnsubscribePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="insights" element={<HRInsightsPage />} />
             </Route>
+            <Route path="/unsubscribe" element={<UnsubscribePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
