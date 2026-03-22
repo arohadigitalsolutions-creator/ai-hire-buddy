@@ -225,6 +225,14 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    return () => {
+      if (autoStartTimeoutRef.current) {
+        window.clearTimeout(autoStartTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Speak interviewer questions aloud, then open candidate turn automatically
   const speakQuestion = useCallback((text: string) => {
     setCanAnswer(false);
@@ -244,7 +252,10 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
 
       if (isSupported) {
         autoStartTimeoutRef.current = window.setTimeout(() => {
-          startListening(true);
+          const started = startListening(true);
+          if (!started) {
+            window.setTimeout(() => startListening(false), 500);
+          }
           autoStartTimeoutRef.current = null;
         }, 350);
       }
