@@ -29,6 +29,7 @@ function useSpeechRecognition() {
   const [interimTranscript, setInterimTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const processedIndexRef = useRef(0);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -40,16 +41,19 @@ function useSpeechRecognition() {
       recognition.lang = "en-US";
 
       recognition.onresult = (event: any) => {
-        let final = "";
+        let newFinal = "";
         let interim = "";
-        for (let i = 0; i < event.results.length; i++) {
+        for (let i = processedIndexRef.current; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript + " ";
+            newFinal += event.results[i][0].transcript + " ";
+            processedIndexRef.current = i + 1;
           } else {
             interim += event.results[i][0].transcript;
           }
         }
-        setTranscript((prev) => prev + final);
+        if (newFinal) {
+          setTranscript((prev) => prev + newFinal);
+        }
         setInterimTranscript(interim);
       };
 
@@ -61,7 +65,6 @@ function useSpeechRecognition() {
       };
 
       recognition.onend = () => {
-        // Auto-restart if still supposed to be listening
         if (recognitionRef.current?._shouldListen) {
           try { recognition.start(); } catch {}
         } else {
@@ -77,6 +80,7 @@ function useSpeechRecognition() {
     if (recognitionRef.current) {
       setTranscript("");
       setInterimTranscript("");
+      processedIndexRef.current = 0;
       recognitionRef.current._shouldListen = true;
       try {
         recognitionRef.current.start();
@@ -97,6 +101,7 @@ function useSpeechRecognition() {
   const resetTranscript = useCallback(() => {
     setTranscript("");
     setInterimTranscript("");
+    processedIndexRef.current = 0;
   }, []);
 
   return { isListening, transcript, interimTranscript, isSupported, startListening, stopListening, resetTranscript };
