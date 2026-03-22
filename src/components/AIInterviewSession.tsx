@@ -157,12 +157,6 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Sync transcript into answer field
-  useEffect(() => {
-    if (transcript || interimTranscript) {
-      setAnswer(transcript + interimTranscript);
-    }
-  }, [transcript, interimTranscript]);
 
   // Speak interviewer questions aloud
   const speakQuestion = useCallback((text: string) => {
