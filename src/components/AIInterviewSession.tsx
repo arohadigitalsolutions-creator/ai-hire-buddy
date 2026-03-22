@@ -212,14 +212,12 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   };
 
   const submitAnswer = async () => {
-    const finalAnswer = (transcript + interimTranscript).trim() || answer.trim();
+    const finalAnswer = transcript.trim();
     if (!finalAnswer || loading) return;
 
     // Stop listening if active
     if (isListening) stopListening();
     resetTranscript();
-
-    setAnswer("");
     setMessages((prev) => [...prev, { role: "candidate", content: finalAnswer }]);
     setLoading(true);
 
