@@ -129,7 +129,7 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   const [jdText, setJdText] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [answer, setAnswer] = useState("");
+  
   const [loading, setLoading] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
