@@ -129,7 +129,7 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   const [jdText, setJdText] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [answer, setAnswer] = useState("");
+  
   const [loading, setLoading] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
@@ -157,12 +157,6 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Sync transcript into answer field
-  useEffect(() => {
-    if (transcript || interimTranscript) {
-      setAnswer(transcript + interimTranscript);
-    }
-  }, [transcript, interimTranscript]);
 
   // Speak interviewer questions aloud
   const speakQuestion = useCallback((text: string) => {
@@ -212,14 +206,12 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   };
 
   const submitAnswer = async () => {
-    const finalAnswer = (transcript + interimTranscript).trim() || answer.trim();
+    const finalAnswer = transcript.trim();
     if (!finalAnswer || loading) return;
 
     // Stop listening if active
     if (isListening) stopListening();
     resetTranscript();
-
-    setAnswer("");
     setMessages((prev) => [...prev, { role: "candidate", content: finalAnswer }]);
     setLoading(true);
 
@@ -277,7 +269,6 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
       stopListening();
     } else {
       resetTranscript();
-      setAnswer("");
       startListening();
     }
   };
@@ -609,75 +600,74 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input Area */}
+      {/* Voice Input Area */}
       {phase === "interview" && (
         <div className="px-6 py-4 border-t border-border bg-card">
-          {/* Listening indicator */}
-          <AnimatePresence>
+          {/* Live transcript display */}
+          {(transcript || interimTranscript) && (
+            <div className="mb-3 px-4 py-3 rounded-xl bg-muted/30 border border-border">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Your response:</p>
+              <p className="text-sm text-foreground leading-relaxed">
+                {transcript}<span className="text-muted-foreground/50">{interimTranscript}</span>
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-col items-center gap-3 max-w-md mx-auto">
+            {/* Main mic button */}
+            <button
+              onClick={toggleMic}
+              disabled={loading || isSpeaking}
+              className={`h-20 w-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                isListening
+                  ? "bg-destructive text-destructive-foreground scale-110"
+                  : "bg-primary text-primary-foreground hover:scale-105"
+              } disabled:opacity-50 disabled:scale-100`}
+              title={isListening ? "Stop recording" : "Start recording"}
+            >
+              {isListening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+            </button>
+
             {isListening && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="mb-3 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-destructive/5 border border-destructive/20"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2"
               >
-                <div className="relative">
-                  <Mic className="h-5 w-5 text-destructive" />
-                  <motion.div
-                    className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive"
-                    animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
-                    transition={{ repeat: Infinity, duration: 1 }}
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-destructive">Listening... Speak your answer</p>
-                  {(transcript || interimTranscript) && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {transcript}<span className="text-muted-foreground/50">{interimTranscript}</span>
-                    </p>
-                  )}
-                </div>
+                <motion.div
+                  className="h-2.5 w-2.5 rounded-full bg-destructive"
+                  animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
+                  transition={{ repeat: Infinity, duration: 1 }}
+                />
+                <span className="text-sm font-medium text-destructive">Listening...</span>
               </motion.div>
             )}
-          </AnimatePresence>
 
-          <div className="flex gap-3 max-w-4xl mx-auto">
-            {/* Mic button */}
-            {isSupported && (
-              <button
-                onClick={toggleMic}
-                disabled={loading || isSpeaking}
-                className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 transition-all ${
-                  isListening
-                    ? "bg-destructive text-destructive-foreground animate-pulse"
-                    : "bg-muted hover:bg-muted/80 text-foreground"
-                } disabled:opacity-50`}
-                title={isListening ? "Stop recording" : "Start recording"}
+            {/* Submit button - shown when there's a transcript and not listening */}
+            {!isListening && transcript.trim() && (
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={submitAnswer}
+                disabled={loading}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              </button>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Submit Answer
+              </motion.button>
             )}
 
-            <textarea
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAnswer(); } }}
-              placeholder={isListening ? "Listening... or type here" : "Click mic to speak or type your answer..."}
-              disabled={loading}
-              className="flex-1 min-h-[48px] max-h-32 px-4 py-3 rounded-xl border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none disabled:opacity-50"
-              rows={2}
-            />
-            <button
-              onClick={submitAnswer}
-              disabled={loading || !answer.trim()}
-              className="h-12 w-12 rounded-xl bg-gradient-primary flex items-center justify-center text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0"
-            >
-              <Send className="h-5 w-5" />
-            </button>
+            <p className="text-center text-xs text-muted-foreground">
+              {isListening
+                ? "Speak your answer clearly. Click the mic when done."
+                : isSpeaking
+                ? "Listen to the question..."
+                : transcript.trim()
+                ? "Review your answer, then submit or re-record."
+                : "Click the microphone to start speaking your answer."
+              }
+            </p>
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            {isSupported ? "🎙️ Click the mic to speak, or type your answer. Press Enter to submit." : "Type your answer and press Enter to submit."}
-          </p>
         </div>
       )}
     </div>
