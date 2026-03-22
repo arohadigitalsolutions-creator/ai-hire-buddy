@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare, Send, Loader2, ArrowLeft, CheckCircle, AlertTriangle,
   BarChart3, Shield, Brain, Award, FileText, ChevronDown, ChevronUp,
+  Mic, MicOff, Volume2, VolumeX,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,107 @@ interface Message {
   evaluation?: any;
 }
 
+// ─── Speech Recognition Hook ───
+function useSpeechRecognition() {
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [isSupported, setIsSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setIsSupported(!!SpeechRecognition);
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (event: any) => {
+        let final = "";
+        let interim = "";
+        for (let i = 0; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            final += event.results[i][0].transcript + " ";
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        setTranscript((prev) => prev + final);
+        setInterimTranscript(interim);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        if (event.error !== "no-speech") {
+          setIsListening(false);
+        }
+      };
+
+      recognition.onend = () => {
+        // Auto-restart if still supposed to be listening
+        if (recognitionRef.current?._shouldListen) {
+          try { recognition.start(); } catch {}
+        } else {
+          setIsListening(false);
+        }
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const startListening = useCallback(() => {
+    if (recognitionRef.current) {
+      setTranscript("");
+      setInterimTranscript("");
+      recognitionRef.current._shouldListen = true;
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch {}
+    }
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current._shouldListen = false;
+      recognitionRef.current.stop();
+      setIsListening(false);
+      setInterimTranscript("");
+    }
+  }, []);
+
+  const resetTranscript = useCallback(() => {
+    setTranscript("");
+    setInterimTranscript("");
+  }, []);
+
+  return { isListening, transcript, interimTranscript, isSupported, startListening, stopListening, resetTranscript };
+}
+
+// ─── Speech Synthesis Helper ───
+function speakText(text: string, onEnd?: () => void): SpeechSynthesisUtterance | null {
+  if (!window.speechSynthesis) return null;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 0.95;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+
+  // Try to pick a natural English voice
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(
+    (v) => v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha"))
+  ) || voices.find((v) => v.lang.startsWith("en"));
+  if (preferred) utterance.voice = preferred;
+
+  if (onEnd) utterance.onend = onEnd;
+  window.speechSynthesis.speak(utterance);
+  return utterance;
+}
+
 export default function AIInterviewSession({ interviewId, candidateName, role, onBack, onComplete }: Props) {
   const { toast } = useToast();
   const [phase, setPhase] = useState<"setup" | "interview" | "evaluating" | "report">("setup");
@@ -34,11 +136,47 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   const [report, setReport] = useState<any>(null);
   const [plan, setPlan] = useState<any>(null);
   const [showSkillMatch, setShowSkillMatch] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const {
+    isListening, transcript, interimTranscript, isSupported,
+    startListening, stopListening, resetTranscript,
+  } = useSpeechRecognition();
+
+  // Load voices (some browsers load them async)
+  useEffect(() => {
+    window.speechSynthesis?.getVoices();
+    const handleVoices = () => window.speechSynthesis?.getVoices();
+    window.speechSynthesis?.addEventListener?.("voiceschanged", handleVoices);
+    return () => window.speechSynthesis?.removeEventListener?.("voiceschanged", handleVoices);
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Sync transcript into answer field
+  useEffect(() => {
+    if (transcript || interimTranscript) {
+      setAnswer(transcript + interimTranscript);
+    }
+  }, [transcript, interimTranscript]);
+
+  // Speak interviewer questions aloud
+  const speakQuestion = useCallback((text: string) => {
+    if (!voiceEnabled) return;
+    setIsSpeaking(true);
+    speakText(text, () => {
+      setIsSpeaking(false);
+      // Auto-start listening after question is spoken
+      if (isSupported) {
+        resetTranscript();
+        startListening();
+      }
+    });
+  }, [voiceEnabled, isSupported, resetTranscript, startListening]);
 
   const startInterview = async () => {
     if (!jdText.trim() || !resumeText.trim()) {
@@ -57,10 +195,15 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
       setTotalQuestions(data.total_questions);
       setQuestionIndex(0);
       setPhase("interview");
+
+      const firstQ = data.first_question.question;
       setMessages([
         { role: "system", content: `Interview started for ${candidateName} — ${role}. Resume match: ${data.plan.skill_matching.resume_skill_match_score}%` },
-        { role: "interviewer", content: data.first_question.question },
+        { role: "interviewer", content: firstQ },
       ]);
+
+      // Speak the first question
+      setTimeout(() => speakQuestion(firstQ), 500);
     } catch (e: any) {
       toast({ title: "Failed to start interview", description: e.message, variant: "destructive" });
     } finally {
@@ -69,20 +212,24 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   };
 
   const submitAnswer = async () => {
-    if (!answer.trim() || loading) return;
-    const currentAnswer = answer;
+    const finalAnswer = (transcript + interimTranscript).trim() || answer.trim();
+    if (!finalAnswer || loading) return;
+
+    // Stop listening if active
+    if (isListening) stopListening();
+    resetTranscript();
+
     setAnswer("");
-    setMessages((prev) => [...prev, { role: "candidate", content: currentAnswer }]);
+    setMessages((prev) => [...prev, { role: "candidate", content: finalAnswer }]);
     setLoading(true);
 
     try {
       const { data, error } = await supabase.functions.invoke("conduct-interview", {
-        body: { action: "answer", interviewId, answer: currentAnswer, questionIndex },
+        body: { action: "answer", interviewId, answer: finalAnswer, questionIndex },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Add evaluation feedback (hidden scores, just acknowledgment)
       const evalMsg: Message = {
         role: "system",
         content: `Answer recorded (Q${data.question_number}/${data.total_questions})`,
@@ -97,7 +244,10 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
         await generateReport();
       } else if (data.next_question) {
         setQuestionIndex(questionIndex + 1);
-        setMessages((prev) => [...prev, { role: "interviewer", content: data.next_question.question }]);
+        const nextQ = data.next_question.question;
+        setMessages((prev) => [...prev, { role: "interviewer", content: nextQ }]);
+        // Speak next question
+        setTimeout(() => speakQuestion(nextQ), 300);
       }
     } catch (e: any) {
       toast({ title: "Error processing answer", description: e.message, variant: "destructive" });
@@ -122,6 +272,22 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     }
   };
 
+  const toggleMic = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      resetTranscript();
+      setAnswer("");
+      startListening();
+    }
+  };
+
+  const toggleVoice = () => {
+    if (isSpeaking) window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+    setVoiceEnabled(!voiceEnabled);
+  };
+
   const getRecommendationColor = (rec: string) => {
     if (rec === "Strong Hire") return "text-emerald-400";
     if (rec === "Hire") return "text-green-400";
@@ -143,9 +309,28 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
           <ArrowLeft className="h-4 w-4" /> Back to Interviews
         </button>
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Start AI Interview</h1>
-          <p className="text-muted-foreground mt-1">Provide the job description and candidate resume to begin.</p>
+          <h1 className="text-2xl font-bold text-foreground">Start AI Voice Interview</h1>
+          <p className="text-muted-foreground mt-1">Provide the job description and candidate resume. The interview will be conducted via voice.</p>
         </div>
+
+        {/* Voice capability notice */}
+        <div className="mb-6 p-4 rounded-xl border border-primary/20 bg-primary/5">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Mic className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Voice-Based Interview</p>
+              <p className="text-xs text-muted-foreground">
+                {isSupported
+                  ? "Questions will be read aloud. Speak your answers using the microphone. You can also type."
+                  : "Speech recognition not supported in this browser. You can type answers instead. Use Chrome or Edge for voice."
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Job Description</label>
@@ -182,8 +367,8 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
           disabled={loading || !jdText.trim() || !resumeText.trim()}
           className="mt-6 w-full h-12 rounded-xl bg-gradient-primary text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageSquare className="h-5 w-5" />}
-          {loading ? "Analyzing & Generating Questions..." : "Start Interview"}
+          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="h-5 w-5" />}
+          {loading ? "Analyzing & Generating Questions..." : "Start Voice Interview"}
         </button>
       </div>
     );
@@ -333,7 +518,15 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
             <p className="text-xs text-muted-foreground">{role} · Q{Math.min(questionIndex + 1, totalQuestions)}/{totalQuestions}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Voice toggle */}
+          <button
+            onClick={toggleVoice}
+            className={`p-2 rounded-lg transition-colors ${voiceEnabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+            title={voiceEnabled ? "Mute interviewer voice" : "Enable interviewer voice"}
+          >
+            {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+          </button>
           <div className="w-32 h-2 rounded-full bg-muted overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all"
@@ -343,6 +536,30 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
           <span className="text-xs text-muted-foreground">{totalQuestions > 0 ? Math.round(((questionIndex + 1) / totalQuestions) * 100) : 0}%</span>
         </div>
       </div>
+
+      {/* Speaking indicator */}
+      <AnimatePresence>
+        {isSpeaking && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="px-6 py-2 bg-primary/5 border-b border-primary/10 flex items-center gap-2"
+          >
+            <div className="flex items-center gap-1">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-1 bg-primary rounded-full"
+                  animate={{ height: [4, 16, 4] }}
+                  transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.1 }}
+                />
+              ))}
+            </div>
+            <span className="text-xs font-medium text-primary">AI Interviewer is speaking...</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
@@ -365,6 +582,13 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
                   <div className="flex items-center gap-2 mb-1.5">
                     <Brain className="h-3.5 w-3.5 text-primary" />
                     <span className="text-xs font-medium text-primary">AI Interviewer</span>
+                    <Volume2 className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                )}
+                {msg.role === "candidate" && (
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Mic className="h-3 w-3 text-primary-foreground/70" />
+                    <span className="text-xs font-medium text-primary-foreground/70">Spoken Answer</span>
                   </div>
                 )}
                 {msg.content}
@@ -388,12 +612,57 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
       {/* Input Area */}
       {phase === "interview" && (
         <div className="px-6 py-4 border-t border-border bg-card">
+          {/* Listening indicator */}
+          <AnimatePresence>
+            {isListening && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="mb-3 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-destructive/5 border border-destructive/20"
+              >
+                <div className="relative">
+                  <Mic className="h-5 w-5 text-destructive" />
+                  <motion.div
+                    className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive"
+                    animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-destructive">Listening... Speak your answer</p>
+                  {(transcript || interimTranscript) && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      {transcript}<span className="text-muted-foreground/50">{interimTranscript}</span>
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="flex gap-3 max-w-4xl mx-auto">
+            {/* Mic button */}
+            {isSupported && (
+              <button
+                onClick={toggleMic}
+                disabled={loading || isSpeaking}
+                className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                  isListening
+                    ? "bg-destructive text-destructive-foreground animate-pulse"
+                    : "bg-muted hover:bg-muted/80 text-foreground"
+                } disabled:opacity-50`}
+                title={isListening ? "Stop recording" : "Start recording"}
+              >
+                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              </button>
+            )}
+
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAnswer(); } }}
-              placeholder="Type your answer... (Shift+Enter for new line)"
+              placeholder={isListening ? "Listening... or type here" : "Click mic to speak or type your answer..."}
               disabled={loading}
               className="flex-1 min-h-[48px] max-h-32 px-4 py-3 rounded-xl border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none disabled:opacity-50"
               rows={2}
@@ -406,6 +675,9 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
               <Send className="h-5 w-5" />
             </button>
           </div>
+          <p className="text-center text-xs text-muted-foreground mt-2">
+            {isSupported ? "🎙️ Click the mic to speak, or type your answer. Press Enter to submit." : "Type your answer and press Enter to submit."}
+          </p>
         </div>
       )}
     </div>
