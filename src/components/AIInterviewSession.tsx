@@ -29,82 +29,105 @@ function useSpeechRecognition() {
   const [interimTranscript, setInterimTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const processedIndexRef = useRef(0);
+
+  const requestMicrophonePermission = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return false;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch (error) {
+      console.error("Microphone permission denied:", error);
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setIsSupported(!!SpeechRecognition);
+
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = true;
+      recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = "en-US";
 
       recognition.onresult = (event: any) => {
-        let newFinal = "";
+        let finalChunk = "";
         let interim = "";
-        for (let i = processedIndexRef.current; i < event.results.length; i++) {
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const text = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            newFinal += event.results[i][0].transcript + " ";
-            processedIndexRef.current = i + 1;
+            finalChunk += `${text} `;
           } else {
-            interim += event.results[i][0].transcript;
+            interim += text;
           }
         }
-        if (newFinal) {
-          setTranscript((prev) => prev + newFinal);
+
+        if (finalChunk) {
+          setTranscript((prev) => prev + finalChunk);
         }
         setInterimTranscript(interim);
       };
 
       recognition.onerror = (event: any) => {
         console.error("Speech recognition error:", event.error);
-        if (event.error !== "no-speech") {
-          setIsListening(false);
-        }
+        setIsListening(false);
       };
 
       recognition.onend = () => {
-        if (recognitionRef.current?._shouldListen) {
-          try { recognition.start(); } catch {}
-        } else {
-          setIsListening(false);
-        }
+        setIsListening(false);
       };
 
       recognitionRef.current = recognition;
     }
   }, []);
 
-  const startListening = useCallback(() => {
-    if (recognitionRef.current) {
+  const startListening = useCallback((reset = true) => {
+    if (!recognitionRef.current || isListening) return;
+
+    if (reset) {
       setTranscript("");
       setInterimTranscript("");
-      processedIndexRef.current = 0;
-      recognitionRef.current._shouldListen = true;
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-      } catch {}
     }
-  }, []);
+
+    try {
+      recognitionRef.current.start();
+      setIsListening(true);
+    } catch (error) {
+      console.error("Failed to start speech recognition:", error);
+      setIsListening(false);
+    }
+  }, [isListening]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current._shouldListen = false;
+    if (!recognitionRef.current) return;
+
+    try {
       recognitionRef.current.stop();
-      setIsListening(false);
-      setInterimTranscript("");
+    } catch (error) {
+      console.error("Failed to stop speech recognition:", error);
     }
+
+    setIsListening(false);
   }, []);
 
   const resetTranscript = useCallback(() => {
     setTranscript("");
     setInterimTranscript("");
-    processedIndexRef.current = 0;
   }, []);
 
-  return { isListening, transcript, interimTranscript, isSupported, startListening, stopListening, resetTranscript };
+  return {
+    isListening,
+    transcript,
+    interimTranscript,
+    isSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+    requestMicrophonePermission,
+  };
 }
 
 // ─── Speech Synthesis Helper ───
@@ -143,11 +166,18 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   const [showSkillMatch, setShowSkillMatch] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [canAnswer, setCanAnswer] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const {
-    isListening, transcript, interimTranscript, isSupported,
-    startListening, stopListening, resetTranscript,
+    isListening,
+    transcript,
+    interimTranscript,
+    isSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+    requestMicrophonePermission,
   } = useSpeechRecognition();
 
   // Load voices (some browsers load them async)
@@ -162,27 +192,55 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-
-  // Speak interviewer questions aloud
+  // Speak interviewer questions aloud, then open candidate turn automatically
   const speakQuestion = useCallback((text: string) => {
-    if (!voiceEnabled) return;
-    setIsSpeaking(true);
-    speakText(text, () => {
+    setCanAnswer(false);
+
+    if (isListening) {
+      stopListening();
+    }
+
+    const openCandidateTurn = () => {
       setIsSpeaking(false);
-      // Auto-start listening after question is spoken
+      setCanAnswer(true);
       if (isSupported) {
-        resetTranscript();
-        startListening();
+        startListening(true);
       }
-    });
-  }, [voiceEnabled, isSupported, resetTranscript, startListening]);
+    };
+
+    if (!voiceEnabled || !window.speechSynthesis) {
+      openCandidateTurn();
+      return;
+    }
+
+    setIsSpeaking(true);
+    const utterance = speakText(text, openCandidateTurn);
+    if (!utterance) {
+      openCandidateTurn();
+    }
+  }, [isListening, isSupported, startListening, stopListening, voiceEnabled]);
 
   const startInterview = async () => {
     if (!jdText.trim() || !resumeText.trim()) {
       toast({ title: "Please provide both JD and resume", variant: "destructive" });
       return;
     }
+
+    if (isSupported) {
+      const permissionGranted = await requestMicrophonePermission();
+      if (!permissionGranted) {
+        toast({
+          title: "Microphone access required",
+          description: "Please allow microphone access to continue with voice interview.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setLoading(true);
+    setCanAnswer(false);
+
     try {
       const { data, error } = await supabase.functions.invoke("conduct-interview", {
         body: { action: "start", interviewId, jdText, resumeText },
@@ -201,7 +259,6 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
         { role: "interviewer", content: firstQ },
       ]);
 
-      // Speak the first question
       setTimeout(() => speakQuestion(firstQ), 500);
     } catch (e: any) {
       toast({ title: "Failed to start interview", description: e.message, variant: "destructive" });
@@ -211,12 +268,12 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   };
 
   const submitAnswer = async () => {
-    const finalAnswer = transcript.trim();
-    if (!finalAnswer || loading) return;
+    const finalAnswer = `${transcript} ${interimTranscript}`.trim();
+    if (!canAnswer || !finalAnswer || loading) return;
 
-    // Stop listening if active
     if (isListening) stopListening();
-    resetTranscript();
+    setCanAnswer(false);
+
     setMessages((prev) => [...prev, { role: "candidate", content: finalAnswer }]);
     setLoading(true);
 
@@ -234,20 +291,21 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
       };
       setMessages((prev) => [...prev, evalMsg]);
       setTotalQuestions(data.total_questions);
+      resetTranscript();
 
       if (data.is_complete) {
         setPhase("evaluating");
         setMessages((prev) => [...prev, { role: "system", content: "All questions answered. Generating evaluation report..." }]);
         await generateReport();
       } else if (data.next_question) {
-        setQuestionIndex(questionIndex + 1);
+        setQuestionIndex((prev) => prev + 1);
         const nextQ = data.next_question.question;
         setMessages((prev) => [...prev, { role: "interviewer", content: nextQ }]);
-        // Speak next question
         setTimeout(() => speakQuestion(nextQ), 300);
       }
     } catch (e: any) {
       toast({ title: "Error processing answer", description: e.message, variant: "destructive" });
+      setCanAnswer(true);
     } finally {
       setLoading(false);
     }
@@ -266,15 +324,17 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     } catch (e: any) {
       toast({ title: "Report generation failed", description: e.message, variant: "destructive" });
       setPhase("interview");
+      setCanAnswer(true);
     }
   };
 
   const toggleMic = () => {
+    if (!canAnswer || loading || isSpeaking) return;
+
     if (isListening) {
       stopListening();
     } else {
-      resetTranscript();
-      startListening();
+      startListening(false);
     }
   };
 
@@ -319,8 +379,8 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
               <p className="text-sm font-semibold text-foreground">Voice-Based Interview</p>
               <p className="text-xs text-muted-foreground">
                 {isSupported
-                  ? "Questions will be read aloud. Speak your answers using the microphone. You can also type."
-                  : "Speech recognition not supported in this browser. You can type answers instead. Use Chrome or Edge for voice."
+                  ? "Questions are read aloud and your answers are captured by microphone automatically after each question."
+                  : "Speech recognition is not supported in this browser. Please use Chrome or Edge for voice interviews."
                 }
               </p>
             </div>
@@ -618,61 +678,65 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
             </div>
           )}
 
-          <div className="flex flex-col items-center gap-3 max-w-md mx-auto">
-            {/* Main mic button */}
-            <button
-              onClick={toggleMic}
-              disabled={loading || isSpeaking}
-              className={`h-20 w-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
-                isListening
-                  ? "bg-destructive text-destructive-foreground scale-110"
-                  : "bg-primary text-primary-foreground hover:scale-105"
-              } disabled:opacity-50 disabled:scale-100`}
-              title={isListening ? "Stop recording" : "Start recording"}
-            >
-              {isListening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
-            </button>
-
-            {isListening && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2"
+            <div className="flex flex-col items-center gap-3 max-w-md mx-auto">
+              {/* Main mic button */}
+              <button
+                onClick={toggleMic}
+                disabled={loading || isSpeaking || !canAnswer || !isSupported}
+                className={`h-20 w-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                  isListening
+                    ? "bg-destructive text-destructive-foreground scale-110"
+                    : "bg-primary text-primary-foreground hover:scale-105"
+                } disabled:opacity-50 disabled:scale-100`}
+                title={isListening ? "Stop recording" : "Start recording"}
               >
+                {isListening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+              </button>
+
+              {isListening && (
                 <motion.div
-                  className="h-2.5 w-2.5 rounded-full bg-destructive"
-                  animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
-                  transition={{ repeat: Infinity, duration: 1 }}
-                />
-                <span className="text-sm font-medium text-destructive">Listening...</span>
-              </motion.div>
-            )}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-2"
+                >
+                  <motion.div
+                    className="h-2.5 w-2.5 rounded-full bg-destructive"
+                    animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                  />
+                  <span className="text-sm font-medium text-destructive">Listening...</span>
+                </motion.div>
+              )}
 
-            {/* Submit button - shown when there's a transcript and not listening */}
-            {!isListening && transcript.trim() && (
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                onClick={submitAnswer}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Submit Answer
-              </motion.button>
-            )}
+              {/* Submit button - shown when there is captured speech and not listening */}
+              {!isListening && canAnswer && `${transcript} ${interimTranscript}`.trim() && (
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={submitAnswer}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Submit Answer
+                </motion.button>
+              )}
 
-            <p className="text-center text-xs text-muted-foreground">
-              {isSpeaking
-                ? "⏳ Wait for the interviewer to finish speaking..."
-                : isListening
-                ? "Speak your answer clearly. Click the mic when done."
-                : transcript.trim()
-                ? "Review your answer, then submit or re-record."
-                : "Click the microphone to start speaking your answer."
-              }
-            </p>
-          </div>
+              <p className="text-center text-xs text-muted-foreground">
+                {!isSupported
+                  ? "Voice input is unavailable in this browser."
+                  : isSpeaking
+                  ? "⏳ Wait for the interviewer to finish speaking..."
+                  : !canAnswer
+                  ? "Preparing your turn..."
+                  : isListening
+                  ? "Speak your answer clearly, then click mic to stop."
+                  : `${transcript} ${interimTranscript}`.trim()
+                  ? "Review your transcript, then submit or record more."
+                  : "Your turn: start speaking now."
+                }
+              </p>
+            </div>
         </div>
       )}
     </div>
