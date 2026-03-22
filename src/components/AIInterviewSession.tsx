@@ -678,61 +678,65 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
             </div>
           )}
 
-          <div className="flex flex-col items-center gap-3 max-w-md mx-auto">
-            {/* Main mic button */}
-            <button
-              onClick={toggleMic}
-              disabled={loading || isSpeaking}
-              className={`h-20 w-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
-                isListening
-                  ? "bg-destructive text-destructive-foreground scale-110"
-                  : "bg-primary text-primary-foreground hover:scale-105"
-              } disabled:opacity-50 disabled:scale-100`}
-              title={isListening ? "Stop recording" : "Start recording"}
-            >
-              {isListening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
-            </button>
-
-            {isListening && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2"
+            <div className="flex flex-col items-center gap-3 max-w-md mx-auto">
+              {/* Main mic button */}
+              <button
+                onClick={toggleMic}
+                disabled={loading || isSpeaking || !canAnswer || !isSupported}
+                className={`h-20 w-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                  isListening
+                    ? "bg-destructive text-destructive-foreground scale-110"
+                    : "bg-primary text-primary-foreground hover:scale-105"
+                } disabled:opacity-50 disabled:scale-100`}
+                title={isListening ? "Stop recording" : "Start recording"}
               >
+                {isListening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+              </button>
+
+              {isListening && (
                 <motion.div
-                  className="h-2.5 w-2.5 rounded-full bg-destructive"
-                  animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
-                  transition={{ repeat: Infinity, duration: 1 }}
-                />
-                <span className="text-sm font-medium text-destructive">Listening...</span>
-              </motion.div>
-            )}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-2"
+                >
+                  <motion.div
+                    className="h-2.5 w-2.5 rounded-full bg-destructive"
+                    animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                  />
+                  <span className="text-sm font-medium text-destructive">Listening...</span>
+                </motion.div>
+              )}
 
-            {/* Submit button - shown when there's a transcript and not listening */}
-            {!isListening && transcript.trim() && (
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                onClick={submitAnswer}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Submit Answer
-              </motion.button>
-            )}
+              {/* Submit button - shown when there is captured speech and not listening */}
+              {!isListening && canAnswer && `${transcript} ${interimTranscript}`.trim() && (
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={submitAnswer}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Submit Answer
+                </motion.button>
+              )}
 
-            <p className="text-center text-xs text-muted-foreground">
-              {isSpeaking
-                ? "⏳ Wait for the interviewer to finish speaking..."
-                : isListening
-                ? "Speak your answer clearly. Click the mic when done."
-                : transcript.trim()
-                ? "Review your answer, then submit or re-record."
-                : "Click the microphone to start speaking your answer."
-              }
-            </p>
-          </div>
+              <p className="text-center text-xs text-muted-foreground">
+                {!isSupported
+                  ? "Voice input is unavailable in this browser."
+                  : isSpeaking
+                  ? "⏳ Wait for the interviewer to finish speaking..."
+                  : !canAnswer
+                  ? "Preparing your turn..."
+                  : isListening
+                  ? "Speak your answer clearly, then click mic to stop."
+                  : `${transcript} ${interimTranscript}`.trim()
+                  ? "Review your transcript, then submit or record more."
+                  : "Your turn: start speaking now."
+                }
+              </p>
+            </div>
         </div>
       )}
     </div>
