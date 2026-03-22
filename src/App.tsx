@@ -52,6 +52,7 @@ const App = () => (
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="insights" element={<HRInsightsPage />} />
             </Route>
+            <Route path="/unsubscribe" element={<UnsubscribePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

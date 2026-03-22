@@ -117,7 +117,7 @@ export default function CommunicationPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Message</label>
-              <textarea value={customMessage || templates[messageType]}
+              <textarea value={customMessage || templates[messageType]?.text || ""}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 className="w-full h-32 p-3 rounded-lg border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
