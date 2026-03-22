@@ -379,8 +379,8 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
               <p className="text-sm font-semibold text-foreground">Voice-Based Interview</p>
               <p className="text-xs text-muted-foreground">
                 {isSupported
-                  ? "Questions will be read aloud. Speak your answers using the microphone. You can also type."
-                  : "Speech recognition not supported in this browser. You can type answers instead. Use Chrome or Edge for voice."
+                  ? "Questions are read aloud and your answers are captured by microphone automatically after each question."
+                  : "Speech recognition is not supported in this browser. Please use Chrome or Edge for voice interviews."
                 }
               </p>
             </div>
