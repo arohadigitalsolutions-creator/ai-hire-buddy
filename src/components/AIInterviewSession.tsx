@@ -29,6 +29,8 @@ function useSpeechRecognition() {
   const [interimTranscript, setInterimTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const isActiveRef = useRef(false);
+  const suppressAbortErrorRef = useRef(false);
 
   const requestMicrophonePermission = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) return false;
@@ -46,71 +48,101 @@ function useSpeechRecognition() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setIsSupported(!!SpeechRecognition);
 
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
+    if (!SpeechRecognition) return;
 
-      recognition.onresult = (event: any) => {
-        let finalChunk = "";
-        let interim = "";
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const text = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalChunk += `${text} `;
-          } else {
-            interim += text;
-          }
+    recognition.onstart = () => {
+      isActiveRef.current = true;
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      let finalChunk = "";
+      let interim = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalChunk += `${text} `;
+        } else {
+          interim += text;
         }
+      }
 
-        if (finalChunk) {
-          setTranscript((prev) => prev + finalChunk);
-        }
-        setInterimTranscript(interim);
-      };
+      if (finalChunk) {
+        setTranscript((prev) => prev + finalChunk);
+      }
+      setInterimTranscript(interim);
+    };
 
-      recognition.onerror = (event: any) => {
+    recognition.onerror = (event: any) => {
+      if (event.error === "aborted" && suppressAbortErrorRef.current) {
+        suppressAbortErrorRef.current = false;
+        return;
+      }
+      if (event.error !== "no-speech" && event.error !== "aborted") {
         console.error("Speech recognition error:", event.error);
-        setIsListening(false);
-      };
+      }
+      isActiveRef.current = false;
+      setIsListening(false);
+    };
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+    recognition.onend = () => {
+      isActiveRef.current = false;
+      setIsListening(false);
+      setInterimTranscript("");
+    };
 
-      recognitionRef.current = recognition;
-    }
+    recognitionRef.current = recognition;
+
+    return () => {
+      try {
+        recognition.abort();
+      } catch {
+        // no-op
+      }
+      recognitionRef.current = null;
+      isActiveRef.current = false;
+    };
   }, []);
 
   const startListening = useCallback((reset = true) => {
-    if (!recognitionRef.current || isListening) return;
+    if (!recognitionRef.current || isActiveRef.current) return false;
 
     if (reset) {
       setTranscript("");
       setInterimTranscript("");
     }
 
+    suppressAbortErrorRef.current = false;
+
     try {
       recognitionRef.current.start();
-      setIsListening(true);
-    } catch (error) {
-      console.error("Failed to start speech recognition:", error);
+      return true;
+    } catch (error: any) {
+      if (error?.name !== "InvalidStateError") {
+        console.error("Failed to start speech recognition:", error);
+      }
       setIsListening(false);
+      return false;
     }
-  }, [isListening]);
+  }, []);
 
   const stopListening = useCallback(() => {
-    if (!recognitionRef.current) return;
+    if (!recognitionRef.current || !isActiveRef.current) return;
 
+    suppressAbortErrorRef.current = true;
     try {
       recognitionRef.current.stop();
-    } catch (error) {
-      console.error("Failed to stop speech recognition:", error);
+    } catch (error: any) {
+      if (error?.name !== "InvalidStateError") {
+        console.error("Failed to stop speech recognition:", error);
+      }
     }
-
-    setIsListening(false);
   }, []);
 
   const resetTranscript = useCallback(() => {
@@ -168,6 +200,7 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [canAnswer, setCanAnswer] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const autoStartTimeoutRef = useRef<number | null>(null);
 
   const {
     isListening,
@@ -192,9 +225,22 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    return () => {
+      if (autoStartTimeoutRef.current) {
+        window.clearTimeout(autoStartTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Speak interviewer questions aloud, then open candidate turn automatically
   const speakQuestion = useCallback((text: string) => {
     setCanAnswer(false);
+
+    if (autoStartTimeoutRef.current) {
+      window.clearTimeout(autoStartTimeoutRef.current);
+      autoStartTimeoutRef.current = null;
+    }
 
     if (isListening) {
       stopListening();
@@ -203,8 +249,15 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     const openCandidateTurn = () => {
       setIsSpeaking(false);
       setCanAnswer(true);
+
       if (isSupported) {
-        startListening(true);
+        autoStartTimeoutRef.current = window.setTimeout(() => {
+          const started = startListening(true);
+          if (!started) {
+            window.setTimeout(() => startListening(false), 500);
+          }
+          autoStartTimeoutRef.current = null;
+        }, 350);
       }
     };
 
@@ -334,7 +387,14 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     if (isListening) {
       stopListening();
     } else {
-      startListening(false);
+      const started = startListening(false);
+      if (!started) {
+        toast({
+          title: "Couldn't start microphone",
+          description: "Please click the mic once more and ensure browser mic access is allowed.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
