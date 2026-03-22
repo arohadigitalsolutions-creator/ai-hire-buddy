@@ -34,32 +34,55 @@ export default function CommunicationPage() {
     setLoading(false);
   };
 
-  const templates: Record<string, string> = {
-    "Interview Invitation": "We are pleased to invite you for an interview for the position. Please let us know your availability.",
-    "Status Update": "We wanted to update you on the status of your application. We are currently reviewing your profile.",
-    "Offer Letter": "Congratulations! We are excited to extend an offer for the position. Please review the details.",
-    "Rejection": "Thank you for your interest. After careful review, we have decided to move forward with other candidates.",
+  const templates: Record<string, { text: string; templateName: string }> = {
+    "Interview Invitation": { text: "We are pleased to invite you for an interview for the position. Please let us know your availability.", templateName: "interview-invitation" },
+    "Status Update": { text: "We wanted to update you on the status of your application. We are currently reviewing your profile.", templateName: "status-update" },
+    "Offer Letter": { text: "Congratulations! We are excited to extend an offer for the position. Please review the details.", templateName: "offer-letter" },
+    "Rejection": { text: "Thank you for your interest. After careful review, we have decided to move forward with other candidates.", templateName: "rejection" },
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!selectedCandidate) return;
     setSending(true);
     const candidate = candidates.find((c) => c.id === selectedCandidate);
+    const candidateEmail = candidate?.candidate_email;
+    const candidateName = candidate?.candidate_name || "Unknown";
+    const tpl = templates[messageType];
+    const message = customMessage || tpl.text;
 
-    // Simulate sending (no real email backend wired yet)
-    setTimeout(() => {
+    if (!candidateEmail) {
+      toast({ title: "No email address", description: "This candidate doesn't have an email on file.", variant: "destructive" });
+      setSending(false);
+      return;
+    }
+
+    try {
+      const idempotencyKey = `comm-${selectedCandidate}-${tpl.templateName}-${Date.now()}`;
+      const { error } = await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: tpl.templateName,
+          recipientEmail: candidateEmail,
+          idempotencyKey,
+          templateData: { candidateName, message },
+        },
+      });
+
+      if (error) throw error;
+
       const newLog: CommunicationLog = {
         id: crypto.randomUUID(),
-        candidateName: candidate?.candidate_name || "Unknown",
-        email: candidate?.candidate_email || "N/A",
+        candidateName,
+        email: candidateEmail,
         type: messageType,
         sentAt: new Date().toISOString(),
       };
       setLogs((prev) => [newLog, ...prev]);
-      toast({ title: `Message prepared for ${candidate?.candidate_name}`, description: "Communication logged successfully." });
+      toast({ title: `Email sent to ${candidateName}`, description: `${messageType} sent to ${candidateEmail}` });
       setCustomMessage("");
-      setSending(false);
-    }, 800);
+    } catch (err: any) {
+      toast({ title: "Failed to send", description: err?.message || "Something went wrong.", variant: "destructive" });
+    }
+    setSending(false);
   };
 
   if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
