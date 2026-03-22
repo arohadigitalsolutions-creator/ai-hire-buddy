@@ -663,10 +663,10 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
             )}
 
             <p className="text-center text-xs text-muted-foreground">
-              {isListening
+              {isSpeaking
+                ? "⏳ Wait for the interviewer to finish speaking..."
+                : isListening
                 ? "Speak your answer clearly. Click the mic when done."
-                : isSpeaking
-                ? "Listen to the question..."
                 : transcript.trim()
                 ? "Review your answer, then submit or re-record."
                 : "Click the microphone to start speaking your answer."
