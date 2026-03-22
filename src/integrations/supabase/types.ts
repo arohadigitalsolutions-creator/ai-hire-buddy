@@ -170,37 +170,67 @@ export type Database = {
       interviews: {
         Row: {
           candidate_name: string
+          confidence_score: number | null
+          conversation: Json | null
           created_at: string
+          current_question_index: number | null
+          final_fit_score: number | null
           id: string
+          interview_score: number | null
           interview_type: string
+          jd_text: string | null
           questions: Json | null
+          report: Json | null
+          resume_skill_match: number | null
+          resume_text: string | null
           role: string
           scheduled_date: string | null
           status: string
+          suspicion_level: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           candidate_name?: string
+          confidence_score?: number | null
+          conversation?: Json | null
           created_at?: string
+          current_question_index?: number | null
+          final_fit_score?: number | null
           id?: string
+          interview_score?: number | null
           interview_type?: string
+          jd_text?: string | null
           questions?: Json | null
+          report?: Json | null
+          resume_skill_match?: number | null
+          resume_text?: string | null
           role?: string
           scheduled_date?: string | null
           status?: string
+          suspicion_level?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           candidate_name?: string
+          confidence_score?: number | null
+          conversation?: Json | null
           created_at?: string
+          current_question_index?: number | null
+          final_fit_score?: number | null
           id?: string
+          interview_score?: number | null
           interview_type?: string
+          jd_text?: string | null
           questions?: Json | null
+          report?: Json | null
+          resume_skill_match?: number | null
+          resume_text?: string | null
           role?: string
           scheduled_date?: string | null
           status?: string
+          suspicion_level?: string | null
           updated_at?: string
           user_id?: string
         }
