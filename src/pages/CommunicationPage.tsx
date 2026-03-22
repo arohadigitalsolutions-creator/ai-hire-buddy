@@ -110,7 +110,7 @@ export default function CommunicationPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Template</label>
-              <select value={messageType} onChange={(e) => { setMessageType(e.target.value); setCustomMessage(templates[e.target.value] || ""); }}
+              <select value={messageType} onChange={(e) => { setMessageType(e.target.value); setCustomMessage(templates[e.target.value]?.text || ""); }}
                 className="w-full h-10 px-3 rounded-lg border border-border bg-muted/30 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition">
                 {Object.keys(templates).map((t) => <option key={t}>{t}</option>)}
               </select>
