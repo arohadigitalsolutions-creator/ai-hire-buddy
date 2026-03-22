@@ -269,7 +269,6 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
       stopListening();
     } else {
       resetTranscript();
-      setAnswer("");
       startListening();
     }
   };
