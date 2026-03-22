@@ -387,7 +387,14 @@ export default function AIInterviewSession({ interviewId, candidateName, role, o
     if (isListening) {
       stopListening();
     } else {
-      startListening(false);
+      const started = startListening(false);
+      if (!started) {
+        toast({
+          title: "Couldn't start microphone",
+          description: "Please click the mic once more and ensure browser mic access is allowed.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
